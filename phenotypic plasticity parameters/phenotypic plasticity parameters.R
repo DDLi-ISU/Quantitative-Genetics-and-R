@@ -14,9 +14,6 @@ data =read.xlsx("./data.sample.xlsx")
 ## data is unbalanced
 table(data$Env,data$ID)
 
-
-
-
 i="PH"
 
 MEM = data%>%
@@ -37,9 +34,7 @@ data2= data%>%
   ungroup(Env)%>%
   mutate(ej = EM - MEM)
 
-
 JRA <- lm(PH ~ ID/ej-1, data=data2) 
-
 
 tidy_JRA= tidy(JRA)
 
