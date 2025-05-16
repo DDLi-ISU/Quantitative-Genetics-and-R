@@ -1,0 +1,108 @@
+---
+title: "Add fixed effect in BGLR and rrBLUP"
+author: "Dongdong Li"
+date: "2025-04-17"
+output: pdf_document
+---
+
+```{r}
+library(rrBLUP)
+M <- matrix(rep(0,200*1000),200,1000)
+for (i in 1:200) {
+  M[i,] <- ifelse(runif(1000)<0.5,-1,1)
+}
+
+#random phenotypes
+u <- rnorm(1000)
+g <- as.vector(crossprod(t(M),u))
+h2 <- 0.5  #heritability
+y <- g + rnorm(200,mean=0,sd=sqrt((1-h2)/h2*var(g)))+60
+
+#predict marker effects
+ans <- mixed.solve(y,Z=M)  #By default K = I
+accuracy <- cor(u,ans$u)
+
+dim(M)
+```
+
+
+```{r}
+svd= svd(M)
+U= svd$u
+D=svd$d
+V=svd$v
+
+x=U%*%diag(D)%*%t(V)
+PC1= x%*%V[,1]
+PC2= x%*%V[,2]
+
+X= cbind(1,PC1,PC2)
+head(X)
+```
+
+
+```{r}
+K=A.mat(M)
+#predict breeding values with fixed effect
+ans <- mixed.solve(y,X=X,K=K)
+accuracy <- cor(g,ans$u)
+accuracy
+ans$beta
+
+
+#predict breeding values without fixed effect
+ans2 <- mixed.solve(y,K=K)
+ans2$beta
+
+accuracy2 <- cor(g,ans2$u)
+accuracy2
+```
+
+
+```{r}
+# RKHS with fixed effect
+library(BGLR)
+X2= data.frame(PC1=PC1,PC2=PC2)
+head(X2)
+```
+
+
+```{r}
+X3=model.matrix(~PC1+PC2,X2)
+head(X3)
+```
+
+
+```{r}
+fit= BGLR(
+  
+  y=y,
+  ETA=list(list(X=X2, model="FIXED"), 
+           list(K=K,model="RKHS")),
+  nIter=20000,
+  burnIn=5000,
+  verbose=F
+  
+)
+fit$mu
+fit$ETA[[1]]
+accuracy3 <- cor(g,fit$yHat)
+accuracy3
+```
+
+
+```{r}
+# RKHS without fixed effect
+
+fit2= BGLR(
+  y=y,
+  ETA=list(list(K=K,model="RKHS")),
+  nIter=20000,
+  burnIn=5000,
+  verbose=F
+)
+fit2$mu
+accuracy4 <- cor(g,fit2$yHat)
+accuracy4
+
+```
